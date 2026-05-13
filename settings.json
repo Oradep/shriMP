@@ -1,0 +1,30 @@
+{
+    "first_run": false,
+    "perf_mode": "Средняя",
+    "profiles": {
+        "Работа за столом": {
+            "baseline": {
+                "slouch": 0.5929602217876305,
+                "asymmetry": 0.03061791092662488,
+                "distance": 0.26874716655682707
+            },
+            "sens": {
+                "slouch": 0.08,
+                "asymmetry": 0.05,
+                "distance": 0.1
+            }
+        }
+    },
+    "active_profile": "Работа за столом",
+    "tolerance_time": 5.800707547169811,
+    "notifications": {
+        "sound": true,
+        "vignette": true,
+        "sound_file": "shrimp.mp3",
+        "sound_fade_ms": 500,
+        "sound_volume": 0.5,
+        "vig_color": "#ff3333",
+        "vig_opacity": 0.5,
+        "vig_thickness": 50
+    }
+}
