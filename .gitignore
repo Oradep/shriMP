@@ -5,3 +5,5 @@ Logo/
 settings.json
 shrimp_stats.db
 *.spec
+build/
+dist/
