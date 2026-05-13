@@ -15,7 +15,7 @@ class ShrimpGUI(ctk.CTk):
         self.core = core
         self.db = db
         
-        self.title("shriMP - Умная Осанка")
+        self.title("shriMP")
         self.geometry("1000x750")
         self.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
 
@@ -27,8 +27,22 @@ class ShrimpGUI(ctk.CTk):
         self.core.vignette = VignetteOverlay()
         self.apply_vignette_settings()
 
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=(20, 0))
+        
+        ctk.CTkLabel(header_frame, text="Текущий профиль [Ctrl+Alt+P]:", font=("Arial", 14, "bold")).pack(side="left", padx=(0, 10))
+        
+        self.main_prof_var = ctk.StringVar(value=self.core.settings["active_profile"])
+        self.main_prof_menu = ctk.CTkOptionMenu(
+            header_frame, 
+            variable=self.main_prof_var, 
+            values=list(self.core.settings["profiles"].keys()), 
+            command=self.on_prof_change
+        )
+        self.main_prof_menu.pack(side="left")
+
         self.tabview = ctk.CTkTabview(self)
-        self.tabview.pack(fill="both", expand=True, padx=20, pady=20)
+        self.tabview.pack(fill="both", expand=True, padx=20, pady=(10, 20))
         
         self.tab_main = self.tabview.add("Главная")
         self.tab_prof = self.tabview.add("Профиль")
@@ -147,11 +161,6 @@ class ShrimpGUI(ctk.CTk):
         self.cam_var = ctk.StringVar(value=cams[0])
         ctk.CTkOptionMenu(card_cam, variable=self.cam_var, values=cams, command=self.on_cam_change).pack(pady=(0,10), padx=10, fill="x")
 
-        card_prof = self.create_card(ctrl_frame, "Активный профиль [Ctrl+Alt+P]")
-        self.main_prof_var = ctk.StringVar(value=self.core.settings["active_profile"])
-        self.main_prof_menu = ctk.CTkOptionMenu(card_prof, variable=self.main_prof_var, values=list(self.core.settings["profiles"].keys()), command=self.on_prof_change)
-        self.main_prof_menu.pack(pady=(0,10), padx=10, fill="x")
-
         self.card_snooze = self.create_card(ctrl_frame, "Режим сна")
         self.snooze_times = {"15 мин": 15, "30 мин": 30, "1 час": 60, "2 часа": 120, "4 часа": 240}
         self.snooze_var = ctk.StringVar(value="15 мин")
@@ -167,6 +176,11 @@ class ShrimpGUI(ctk.CTk):
         
         self.lbl_perf_status = ctk.CTkLabel(self.card_perf, text="", font=("Arial", 11), text_color="gray")
         self.lbl_perf_status.pack(pady=(0,5))
+
+        self.chk_autostart = ctk.CTkSwitch(self.card_perf, text="Автозапуск при старте Windows", command=self.on_autostart_change)
+        if self.core.settings.get("autostart", False):
+            self.chk_autostart.select()
+        self.chk_autostart.pack(pady=(10, 10), padx=10, anchor="w")
 
         btn_calib = ctk.CTkButton(ctrl_frame, text="КАЛИБРОВКА (5 сек)", fg_color="#28a745", hover_color="#218838", height=50, font=("Arial", 14, "bold"), command=self.core.start_calibration)
         btn_calib.pack(pady=(20, 0), fill="x", padx=10)
@@ -194,18 +208,13 @@ class ShrimpGUI(ctk.CTk):
 
         card_edit = self.create_card(set_frame, "Настройка допусков")
         
-        self.lbl_current_prof_edit = ctk.CTkLabel(
-            card_edit, 
-            text=f"Активный профиль: {self.core.settings['active_profile']}", 
-            font=("Arial", 14, "bold"), 
-            text_color="#17a2b8"
-        )
-        self.lbl_current_prof_edit.pack(pady=(0, 10), padx=10, anchor="w")
-
         self.sl_slouch, self.lbl_slouch = self.create_slider_with_val(card_edit, "Сутулость (Y-ось):", 0.02, 0.2, 0.08, self.save_profile_settings)
         self.sl_asym, self.lbl_asym = self.create_slider_with_val(card_edit, "Перекос (Асимметрия):", 0.01, 0.15, 0.05, self.save_profile_settings)
         self.sl_dist, self.lbl_dist = self.create_slider_with_val(card_edit, "Приближение (Z-ось):", 0.05, 0.3, 0.1, self.save_profile_settings)
         
+
+        self.sl_angle, self.lbl_angle = self.create_slider_with_val(card_edit, "Угол наклона камеры (°):", -45.0, 45.0, 0.0, self.save_profile_settings)
+
         self.btn_delete_prof = ctk.CTkButton(
             card_edit, 
             text="Удалить этот профиль", 
@@ -298,11 +307,11 @@ class ShrimpGUI(ctk.CTk):
 
     def preview_sound(self):
         if self.core.is_playing_sound:
-            self.core.is_preview_sound = False 
+            self.core.is_preview_sound = False
             self.core.stop_sound()
         else:
-            self.save_global_settings() 
-            self.core.is_preview_sound = True 
+            self.save_global_settings()
+            self.core.is_preview_sound = True
             self.core.play_sound(force=True)
 
     def preview_vignette(self):
@@ -314,7 +323,7 @@ class ShrimpGUI(ctk.CTk):
             self.after_cancel(self._vig_timer)
             
         def stop_vig_preview():
-            self.core.is_preview_vignette = False 
+            self.core.is_preview_vignette = False
             self.core.vignette.hide()
             
         self._vig_timer = self.after(5000, stop_vig_preview)
@@ -404,6 +413,12 @@ class ShrimpGUI(ctk.CTk):
     def on_perf_change(self, choice):
         self.core.settings["perf_mode"] = choice
         self.core.save_settings()
+
+    def on_autostart_change(self):
+        is_enabled = self.chk_autostart.get() == 1
+        self.core.settings["autostart"] = is_enabled
+        self.core.save_settings()
+        self.core.toggle_autostart(is_enabled)
 
     def on_time_slider(self, val):
         self.entry_time.delete(0, 'end')
@@ -519,9 +534,6 @@ class ShrimpGUI(ctk.CTk):
 
     def load_profile_settings(self):
         prof_name = self.core.settings["active_profile"]
-        
-        if hasattr(self, 'lbl_current_prof_edit'):
-            self.lbl_current_prof_edit.configure(text=f"Активный профиль: {prof_name}")
 
         sens = self.core.settings["profiles"][prof_name]["sens"]
         self.sl_slouch.set(sens["slouch"])
@@ -530,6 +542,17 @@ class ShrimpGUI(ctk.CTk):
         self.lbl_asym.configure(text=str(round(sens["asymmetry"], 2)))
         self.sl_dist.set(sens["distance"])
         self.lbl_dist.configure(text=str(round(sens["distance"], 2)))
+        
+        baseline = self.core.settings["profiles"][prof_name].get("baseline")
+        if baseline:
+            self.sl_angle.configure(state="normal")
+            angle_val = baseline.get("angle", 0.0)
+            self.sl_angle.set(angle_val)
+            self.lbl_angle.configure(text=str(round(angle_val, 2)))
+        else:
+            self.sl_angle.set(0.0)
+            self.lbl_angle.configure(text="0.0")
+            self.sl_angle.configure(state="disabled")
 
     def save_profile_settings(self, _=None):
         prof_name = self.core.settings["active_profile"]
@@ -538,6 +561,11 @@ class ShrimpGUI(ctk.CTk):
             "asymmetry": self.sl_asym.get(),
             "distance": self.sl_dist.get()
         }
+        
+        baseline = self.core.settings["profiles"][prof_name].get("baseline")
+        if baseline:
+            baseline["angle"] = self.sl_angle.get()
+            
         self.core.save_settings()
 
     def save_global_settings(self, _=None):
@@ -577,8 +605,13 @@ class ShrimpGUI(ctk.CTk):
                 self.btn_play_sound.configure(text="▶ Прослушать звук", fg_color=default_fg, hover_color=default_hover)
 
         current_core_prof = self.core.settings["active_profile"]
+        baseline = self.core.settings["profiles"][current_core_prof].get("baseline")
+
         if self.main_prof_var.get() != current_core_prof:
             self.main_prof_var.set(current_core_prof)
+            self.load_profile_settings()
+
+        elif baseline and hasattr(self, 'sl_angle') and self.sl_angle.cget("state") == "disabled":
             self.load_profile_settings()
 
         current_perf = self.core.settings.get("perf_mode", "Средняя")

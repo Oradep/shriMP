@@ -1,14 +1,23 @@
+import sys
+import os
+if getattr(sys, 'frozen', False):
+    os.chdir(os.path.dirname(sys.executable))
+else:
+    os.chdir(os.path.abspath(os.path.dirname(__file__)))
+
+
 import threading
 import time
 import keyboard
 import pystray
-import os
 from PIL import Image, ImageDraw
 import customtkinter as ctk
 
 from database import Database
 from core import PostureCore
 from gui import ShrimpGUI
+
+
 
 def setup_tray(gui, core):
     def show_window(icon, item): gui.after(0, gui.deiconify)
