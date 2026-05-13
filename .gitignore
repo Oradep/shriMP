@@ -2,5 +2,5 @@ venv/
 Проект/
 __pycache__/
 Logo/
-/settings.json
-/shrimp_stats.db
+settings.json
+shrimp_stats.db
