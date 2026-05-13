@@ -4,3 +4,4 @@ __pycache__/
 Logo/
 settings.json
 shrimp_stats.db
+*.spec
