@@ -8,7 +8,6 @@ import customtkinter as ctk
 
 from database import Database
 from core import PostureCore
-# Обновляем импорт класса
 from gui import ShrimpGUI
 
 def setup_tray(gui, core):
@@ -37,7 +36,6 @@ def setup_tray(gui, core):
     def is_perf_active(mode):
         return lambda item: core.settings.get("perf_mode", "Средняя") == mode
 
-    # --- НОВЫЙ ЗАГРУЗЧИК ИКОНОК ---
     def load_icon(state):
         try:
             if state == "green":
@@ -46,8 +44,7 @@ def setup_tray(gui, core):
                 return Image.open(os.path.join("icons", "icon_red.ico"))
             else: 
                 return Image.open(os.path.join("icons", "icon_gray.ico"))
-        except Exception as e:
-            # Если иконки не найдены, рисуем стандартные круги (чтобы прога не падала)
+        except Exception:
             img = Image.new('RGBA', (64, 64), color=(0, 0, 0, 0))
             color_map = {"green": "green", "red": "red", "gray": "gray"}
             ImageDraw.Draw(img).ellipse((8, 8, 56, 56), fill=color_map.get(state, "gray"))
@@ -75,7 +72,6 @@ def setup_tray(gui, core):
         pystray.MenuItem('Выход', quit_app)
     )
     
-    # Меняем название Atlant -> shriMP
     icon = pystray.Icon("shriMP", load_icon("green"), "shriMP", menu)
     
     def update_icon():
@@ -104,7 +100,6 @@ if __name__ == "__main__":
     keyboard.add_hotkey('ctrl+alt+p', core.cycle_profile) 
     keyboard.add_hotkey('ctrl+alt+s', lambda: core.set_snooze(15))
 
-    # Обновляем вызов класса
     app = ShrimpGUI(core, db)
     tray = setup_tray(app, core)
     threading.Thread(target=tray.run, daemon=True).start()

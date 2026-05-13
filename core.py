@@ -1,16 +1,13 @@
-# --- START OF FILE: core.py ---
 import cv2
 import mediapipe as mp
 import numpy as np
 import time
 import json
 import os
-import wave
-import struct
-import math
 import ctypes
 from ctypes import wintypes
 import pygame
+
 try:
     import psutil
     HAS_PSUTIL = True
@@ -22,8 +19,7 @@ class PostureCore:
         self.db = db
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
-        # ВАЖНО: model_complexity=0 значительно (в 3-4 раза) снижает нагрузку на процессор
-        # без потери качества для базовых точек (плечи, глаза), идеально для слабых ПК.
+        # model_complexity=0 делает грязь
         self.pose = self.mp_pose.Pose(min_detection_confidence=0.6, min_tracking_confidence=0.6, model_complexity=0)
         
         self.is_running = True
@@ -33,12 +29,10 @@ class PostureCore:
         self.calibration_frames = []
         self.calibration_start_time = 0
 
-        # Статусы производительности
         self.active_perf_mode = "Средняя"
         self.is_game_running = False
         self.is_high_load = False
 
-        # Инициализация звука (Pygame)
         pygame.mixer.init()
         self.is_playing_sound = False
         self.current_sound_channel = None
@@ -50,43 +44,60 @@ class PostureCore:
         self.settings = self.load_settings()
         
         self.bad_posture_timer = None
+        self.last_sound_time = 0
         self.is_alerting = False
         self.snooze_until = 0
         self.vignette = None
+
+
+        self.is_preview_sound = False
+        self.is_preview_vignette = False
+
         
         self.current_frame_rgb = None
         self.current_frame_visualized = None 
         self.status_text = "Ожидание..."
 
-
     def load_settings(self):
         default_sens = {"slouch": 0.08, "asymmetry": 0.05, "distance": 0.1}
         default_settings = {
             "first_run": True, 
-            "perf_mode": "Минимальная", # Новый параметр (Минимальная / Средняя)
+            "perf_mode": "Минимальная",
             "profiles": {"Работа за столом": {"baseline": None, "sens": default_sens.copy()}},
             "active_profile": "Работа за столом",
             "tolerance_time": 10.0,
             "notifications": {
-                "sound": True, "vignette": True,
+                "sound": True, 
+                "vignette": True,
                 "sound_file": 'shrimp.mp3',
                 "sound_fade_ms": 500,
-                "sound_volume": 0.3,
-                "vig_color": "#ff3333", "vig_opacity": 0.5, "vig_thickness": 50
+                "sound_volume": 0.5,
+                "vig_color": "#ff3333", 
+                "vig_opacity": 0.5, 
+                "vig_thickness": 50,
+                "sound_repeat_sec": 0
             }
         }
+
+        def merge_defaults(loaded_data, defaults):
+            for key, value in defaults.items():
+                if key not in loaded_data:
+                    loaded_data[key] = value
+                elif isinstance(value, dict) and isinstance(loaded_data[key], dict):
+                    #пропускаем заполнение профилей по умолчанию
+                    if key == "profiles" and loaded_data[key]:
+                        continue
+                    merge_defaults(loaded_data[key], value)
+            return loaded_data
+
         if os.path.exists(self.config_file):
-            with open(self.config_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                if "first_run" not in data: data["first_run"] = True
-                if "perf_mode" not in data: data["perf_mode"] = "Средняя"
-                # Удаляем старый параметр toast, если он есть
-                if "notifications" in data and "toast" in data["notifications"]:
-                    del data["notifications"]["toast"]
+            try:
+                with open(self.config_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return merge_defaults(data, default_settings)
+            except json.JSONDecodeError:
+                pass 
                 
-                if "sound_fade_ms" not in data["notifications"]: data["notifications"]["sound_fade_ms"] = 500
-                if "sound_volume" not in data["notifications"]: data["notifications"]["sound_volume"] = 0.5
-                return data
         return default_settings
 
     def save_settings(self):
@@ -118,7 +129,7 @@ class PostureCore:
         }
 
     def is_fullscreen_app_running(self):
-        """Проверяет, открыто ли сейчас полноэкранное приложение (игра)"""
+        """Проверяет, открыто ли окно поверх всех остальных (игры)"""
         user32 = ctypes.windll.user32
         hwnd = user32.GetForegroundWindow()
         if not hwnd: return False
@@ -136,17 +147,24 @@ class PostureCore:
 
         return (width == screen_width and height == screen_height)
 
-    def play_sound(self):
-        if self.is_playing_sound: return
+    def play_sound(self, force=False):
+        if self.is_playing_sound and not force: return
+        
         sound_file = os.path.join(self.assets_dir, self.settings["notifications"]["sound_file"])
         fade_ms = int(self.settings["notifications"]["sound_fade_ms"])
         volume = float(self.settings["notifications"]["sound_volume"])
         
+        rep_sec = self.settings["notifications"].get("sound_repeat_sec", 0)
+        loops_val = -1 if rep_sec == -1 else 0
+        
         if os.path.exists(sound_file):
             try:
+                if self.current_sound_channel and force:
+                    self.current_sound_channel.stop()
+                    
                 sound = pygame.mixer.Sound(sound_file)
                 sound.set_volume(volume)
-                self.current_sound_channel = sound.play(fade_ms=fade_ms, loops=0)
+                self.current_sound_channel = sound.play(fade_ms=fade_ms, loops=loops_val)
                 self.is_playing_sound = True
             except Exception as e:
                 print(f"Ошибка воспроизведения звука: {e}")
@@ -164,7 +182,7 @@ class PostureCore:
         notif = self.settings["notifications"]
             
         if notif["sound"]: 
-            self.play_sound()
+            self.play_sound(force=True)
             
         if notif["vignette"] and self.vignette:
             if not self.is_fullscreen_app_running():
@@ -211,10 +229,8 @@ class PostureCore:
 
     def is_snoozing(self):
         return time.time() < self.snooze_until
-    
 
     def cycle_profile(self):
-        """Переключает профиль на следующий по списку"""
         profiles = list(self.settings["profiles"].keys())
         if not profiles: return
         
@@ -227,15 +243,12 @@ class PostureCore:
         self.settings["active_profile"] = profiles[next_idx]
         self.save_settings()
 
-
-
     def run_camera_loop(self):
         self.cap = cv2.VideoCapture(self.camera_index, cv2.CAP_MSMF)
         
         last_process_time = 0
         last_fs_check = 0
         
-        # Делаем холостой вызов psutil, так как первый вызов всегда возвращает 0.0
         if HAS_PSUTIL:
             psutil.cpu_percent()
         
@@ -248,39 +261,33 @@ class PostureCore:
             image = cv2.flip(image, 1) 
             now = time.time()
             
-            # Проверка на полноэкранное приложение и нагрузку (раз в 2 секунды)
+            #раз в 2 секунды проверяем нагрузку
             if now - last_fs_check > 2.0:
                 self.is_game_running = self.is_fullscreen_app_running()
                 
-                # ДОБАВЛЕНО: Проверка нагрузки на процессор (>80%)
                 if HAS_PSUTIL:
-                    cpu_usage = psutil.cpu_percent()
-                    self.is_high_load = cpu_usage > 80.0
+                    self.is_high_load = psutil.cpu_percent() > 80.0
                 else:
                     self.is_high_load = False
                     
                 last_fs_check = now
 
-            # Определение активного режима производительности
             user_mode = self.settings.get("perf_mode", "Средняя")
             
-            # Если открыта игра ИЛИ система сильно нагружена -> принудительный Минимальный режим
             if self.is_game_running or self.is_high_load:
                 self.active_perf_mode = "Минимальная"
             else:
                 self.active_perf_mode = user_mode
 
-            # Троттлинг FPS: Средний = ~15 FPS, Минимальный = ~3 FPS
+            #15 FPS для среднего режима 3 FPS для минимального
             process_interval = 0.33 if self.active_perf_mode == "Минимальная" else 0.066
             
-            # Если время не пришло - пропускаем обработку нейросетью для экономии ресурсов
             if now - last_process_time < process_interval:
                 time.sleep(0.01)
                 continue
                 
             last_process_time = now
 
-            # --- ОСНОВНАЯ ОБРАБОТКА ---
             image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             results = self.pose.process(image_rgb)
             display_img = image_rgb.copy()
@@ -324,6 +331,7 @@ class PostureCore:
                 mins, secs = divmod(rem_sec, 60)
                 self.status_text = f"Сон (Осталось {mins:02d}:{secs:02d})"
                 continue
+
             if not prof_data or not prof_data.get("baseline"):
                 self.status_text = "Требуется калибровка!"
                 continue
@@ -342,26 +350,36 @@ class PostureCore:
                     self.status_text = f"Обнаружено: {v_type}"
                     if self.bad_posture_timer is None: 
                         self.bad_posture_timer = time.time()
-                        self.is_alerting = False # Сбрасываем флаг при новом нарушении
+                        self.is_alerting = False
                     elif time.time() - self.bad_posture_timer > self.settings["tolerance_time"]:
-                        # Передаем True для записи в БД только в первый момент срабатывания
-                        self.trigger_alert(v_type, log_to_db=not self.is_alerting)
-                        self.is_alerting = True
+                        if not self.is_alerting:
+                            self.trigger_alert(v_type, log_to_db=True)
+                            self.is_alerting = True
+                            self.last_sound_time = time.time()
+                        else:
+                            rep_sec = self.settings["notifications"].get("sound_repeat_sec", 0)
+                            if rep_sec > 0 and (time.time() - self.last_sound_time) >= rep_sec:
+                                if self.settings["notifications"]["sound"]:
+                                    self.play_sound(force=True)
+                                self.last_sound_time = time.time()
                 else:
                     self.status_text = "Осанка в норме"
                     self.bad_posture_timer = None
-                    self.is_alerting = False # Сбрасываем флаг
-                    self.stop_sound()
-                    if self.vignette: self.vignette.hide()
+                    self.is_alerting = False
+                    if not self.is_preview_sound:
+                        self.stop_sound()
+                    if self.vignette and not self.is_preview_vignette: 
+                        self.vignette.hide()
             else:
                 self.status_text = "Нет человека (Sleep Mode)"
                 self.bad_posture_timer = None
-                self.stop_sound()
-                if self.vignette: self.vignette.hide()
+                if not self.is_preview_sound:
+                    self.stop_sound()
+                if self.vignette and not self.is_preview_vignette: 
+                    self.vignette.hide()
 
         if self.cap: self.cap.release()
 
     def change_camera(self, index):
         self.camera_index = index
         if self.cap: self.cap.release()
-# --- END OF FILE: core.py ---

@@ -9,15 +9,12 @@ from overlay import VignetteOverlay
 import numpy as np
 import time
 
-
-
 class ShrimpGUI(ctk.CTk):
     def __init__(self, core, db):
         super().__init__()
         self.core = core
         self.db = db
         
-        # Обновляем название
         self.title("shriMP - Умная Осанка")
         self.geometry("1000x750")
         self.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
@@ -48,19 +45,16 @@ class ShrimpGUI(ctk.CTk):
 
         if self.core.settings.get("first_run", True):
             self.after(500, self.show_onboarding)
-
         else:
             self.withdraw()
-
 
     def show_onboarding(self):
         self.core.settings["first_run"] = False
         self.core.save_settings()
 
         guide = ctk.CTkToplevel(self)
-        guide.title("Добро пожаловать в shriMP!") # Изменено
+        guide.title("Добро пожаловать в shriMP!")
         
-        # Добавляем иконку и окну приветствия
         try:
             guide.iconbitmap(os.path.join("icons", "icon.ico"))
         except Exception:
@@ -72,9 +66,7 @@ class ShrimpGUI(ctk.CTk):
         main_frame = ctk.CTkFrame(guide, fg_color="transparent")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
-        # Изменено название и эмодзи
         ctk.CTkLabel(main_frame, text="Добро пожаловать в shriMP! 🦐", font=("Arial", 22, "bold")).pack(pady=(0, 15))
-# ... остальной код метода без изменений
         
         info_text = (
             "Ваш личный фоновый помощник для поддержания идеальной осанки.\n\n"
@@ -103,20 +95,16 @@ class ShrimpGUI(ctk.CTk):
         btn = ctk.CTkButton(main_frame, text="Понятно, начать использование", font=("Arial", 16, "bold"), height=40, command=close_guide)
         btn.pack(pady=(20, 0))
 
-        # --- АВТО-ПОДГОН И ЦЕНТРИРОВАНИЕ ---
-        guide.update_idletasks() # Ждем, пока Tkinter отрисует элементы и посчитает их реальный размер
+        guide.update_idletasks()
         
-        # Получаем требуемый размер окна с небольшим запасом на отступы
         width = guide.winfo_reqwidth() + 20
         height = guide.winfo_reqheight() + 20
         
-        # Вычисляем центр экрана
         screen_width = guide.winfo_screenwidth()
         screen_height = guide.winfo_screenheight()
         x = (screen_width // 2) - (width // 2)
         y = (screen_height // 2) - (height // 2)
         
-        # Применяем размеры и координаты
         guide.geometry(f"{width}x{height}+{x}+{y}")
 
     def create_card(self, parent, title):
@@ -142,7 +130,6 @@ class ShrimpGUI(ctk.CTk):
         sl.pack(side="right", fill="x", expand=True, padx=10)
         return sl, lbl_val
 
-    # --- ГЛАВНАЯ ---
     def setup_main_tab(self):
         self.tab_main.grid_columnconfigure(0, weight=2)
         self.tab_main.grid_columnconfigure(1, weight=1)
@@ -173,7 +160,6 @@ class ShrimpGUI(ctk.CTk):
         self.btn_snooze = ctk.CTkButton(self.card_snooze, text="Уснуть [Ctrl+Alt+S]", fg_color="#6c757d", hover_color="#5a6268", command=self.toggle_snooze)
         self.btn_snooze.pack(pady=(0,10), padx=10, fill="x")
 
-        # ДОБАВЛЕНО: Карточка нагрузки на систему
         self.card_perf = self.create_card(ctrl_frame, "Нагрузка на систему")
         self.perf_var = ctk.StringVar(value=self.core.settings.get("perf_mode", "Минимальная"))
         self.perf_menu = ctk.CTkOptionMenu(self.card_perf, variable=self.perf_var, values=["Минимальная", "Средняя"], command=self.on_perf_change)
@@ -194,13 +180,10 @@ class ShrimpGUI(ctk.CTk):
         if self.core.is_snoozing(): self.core.wake_up()
         else: self.core.set_snooze(self.snooze_times[self.snooze_var.get()])
 
-    # --- ПРОФИЛИ ---
-# --- ПРОФИЛЬ ---
     def setup_profile_tab(self):
         self.tab_prof.grid_columnconfigure(0, weight=1)
         self.tab_prof.grid_columnconfigure(1, weight=1)
 
-        # Левая часть: Настройки
         set_frame = ctk.CTkFrame(self.tab_prof, fg_color="transparent")
         set_frame.grid(row=0, column=0, sticky="nsew", padx=5)
 
@@ -211,7 +194,6 @@ class ShrimpGUI(ctk.CTk):
 
         card_edit = self.create_card(set_frame, "Настройка допусков")
         
-        # Индикатор текущего редактируемого профиля
         self.lbl_current_prof_edit = ctk.CTkLabel(
             card_edit, 
             text=f"Активный профиль: {self.core.settings['active_profile']}", 
@@ -224,7 +206,6 @@ class ShrimpGUI(ctk.CTk):
         self.sl_asym, self.lbl_asym = self.create_slider_with_val(card_edit, "Перекос (Асимметрия):", 0.01, 0.15, 0.05, self.save_profile_settings)
         self.sl_dist, self.lbl_dist = self.create_slider_with_val(card_edit, "Приближение (Z-ось):", 0.05, 0.3, 0.1, self.save_profile_settings)
         
-        # ДОБАВЛЕНО: Кнопка удаления профиля
         self.btn_delete_prof = ctk.CTkButton(
             card_edit, 
             text="Удалить этот профиль", 
@@ -235,17 +216,13 @@ class ShrimpGUI(ctk.CTk):
         self.btn_delete_prof.pack(pady=(15, 5))
 
         self.load_profile_settings()
-        
-        self.load_profile_settings() # Загружаем сразу для активного профиля
 
-        # Правая часть: Визуализация
         vis_frame = ctk.CTkFrame(self.tab_prof, corner_radius=10)
         vis_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=10)
         ctk.CTkLabel(vis_frame, text="Визуализация для активного профиля", font=("Arial", 12, "bold")).pack(pady=5)
         self.lbl_video_prof = ctk.CTkLabel(vis_frame, text="Загрузка...")
         self.lbl_video_prof.pack(expand=True, fill="both", padx=5, pady=5)
 
-    # --- УВЕДОМЛЕНИЯ ---
     def setup_notif_tab(self):
         notif = self.core.settings["notifications"]
 
@@ -277,6 +254,30 @@ class ShrimpGUI(ctk.CTk):
         self.sl_volume, _ = self.create_slider_with_val(card_sound, "Громкость звука:", 0.0, 1.0, notif.get("sound_volume", 0.5), self.save_global_settings)
         self.sl_fade, _ = self.create_slider_with_val(card_sound, "Плавность звука (Fade ms):", 0, 2000, notif["sound_fade_ms"], self.save_global_settings, is_int=True)
 
+        frame_rep = ctk.CTkFrame(card_sound, fg_color="transparent")
+        frame_rep.pack(fill="x", padx=10, pady=5)
+        ctk.CTkLabel(frame_rep, text="Повтор звука:").pack(side="left")
+        self.lbl_rep_val = ctk.CTkLabel(frame_rep, text="", width=100, font=("Arial", 12, "bold"))
+        self.lbl_rep_val.pack(side="right")
+
+        def on_rep_change(val):
+            v = int(val)
+            if v == -1: txt = "Непрерывно"
+            elif v == 0: txt = "Один раз"
+            else: txt = f"Каждые {v} сек"
+            self.lbl_rep_val.configure(text=txt)
+            self.core.settings["notifications"]["sound_repeat_sec"] = v
+            self.core.save_settings()
+
+        self.sl_rep = ctk.CTkSlider(frame_rep, from_=-1, to=60, number_of_steps=61, command=on_rep_change)
+        curr_rep = notif.get("sound_repeat_sec", 0)
+        self.sl_rep.set(curr_rep)
+        on_rep_change(curr_rep)
+        self.sl_rep.pack(side="right", fill="x", expand=True, padx=10)
+
+        self.btn_play_sound = ctk.CTkButton(card_sound, text="▶ Прослушать звук", command=self.preview_sound)
+        self.btn_play_sound.pack(pady=(10, 15))
+
         card_vig = self.create_card(self.tab_notif, "Визуальные уведомления (Виньетка)")
         self.chk_vignette = ctk.CTkSwitch(card_vig, text="Включить красную рамку (отключается в играх автоматически)", command=self.save_global_settings)
         if notif["vignette"]: self.chk_vignette.select()
@@ -292,9 +293,33 @@ class ShrimpGUI(ctk.CTk):
         self.sl_vig_opac, _ = self.create_slider_with_val(card_vig, "Яркость (непрозрачность):", 0.1, 1.0, notif["vig_opacity"], self.save_vignette_settings)
         self.sl_vig_thick, _ = self.create_slider_with_val(card_vig, "Толщина градиента:", 10, 150, notif["vig_thickness"], self.save_vignette_settings, is_int=True)
 
-    # --- СТАТИСТИКА ---
+        self.btn_preview_vig = ctk.CTkButton(card_vig, text="👁 Показать виньетку (5 сек)", command=self.preview_vignette)
+        self.btn_preview_vig.pack(pady=(10, 15))
+
+    def preview_sound(self):
+        if self.core.is_playing_sound:
+            self.core.is_preview_sound = False 
+            self.core.stop_sound()
+        else:
+            self.save_global_settings() 
+            self.core.is_preview_sound = True 
+            self.core.play_sound(force=True)
+
+    def preview_vignette(self):
+        self.core.is_preview_vignette = True 
+        self.apply_vignette_settings()
+        self.core.vignette.show()
+        
+        if hasattr(self, '_vig_timer') and self._vig_timer:
+            self.after_cancel(self._vig_timer)
+            
+        def stop_vig_preview():
+            self.core.is_preview_vignette = False 
+            self.core.vignette.hide()
+            
+        self._vig_timer = self.after(5000, stop_vig_preview)
+
     def setup_stats_tab(self):
-        # Панель управления
         ctrl_frame = ctk.CTkFrame(self.tab_stat, fg_color="transparent")
         ctrl_frame.pack(fill="x", pady=(0, 10))
 
@@ -309,15 +334,10 @@ class ShrimpGUI(ctk.CTk):
         self.btn_refresh = ctk.CTkButton(ctrl_frame, text="Обновить", command=lambda: self.draw_charts(self.date_var.get()))
         self.btn_refresh.pack(side="left", padx=10)
 
-        # Контейнер для графиков
         self.canvas_frame = ctk.CTkFrame(self.tab_stat)
         self.canvas_frame.pack(fill="both", expand=True)
         
         self.draw_charts(self.date_var.get())
-
-
-
-
 
     def draw_charts(self, selected_date=None):
         if not selected_date: selected_date = self.date_var.get()
@@ -347,30 +367,25 @@ class ShrimpGUI(ctk.CTk):
         fig = Figure(figsize=(9, 4.5), dpi=100)
         fig.patch.set_facecolor('#2b2b2b') 
         
-        # --- СИНХРОНИЗАЦИЯ ЦВЕТОВ ---
         violation_types = list(stats_pie.keys())
         palette = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
-        # Создаем словарь: "Тип нарушения" -> "Цвет"
         type_colors = {v_type: palette[i % len(palette)] for i, v_type in enumerate(violation_types)}
 
-        # 1. Круговая диаграмма
         ax1 = fig.add_subplot(121)
         ax1.set_title("Типы нарушений", color='white')
         ax1.pie(list(stats_pie.values()), labels=violation_types, autopct='%1.1f%%', startangle=90, 
                 colors=[type_colors[t] for t in violation_types], textprops={'color':"w"})
         
-        # 2. Гистограмма (Stacked Bar Chart - составные столбцы)
         ax2 = fig.add_subplot(122)
         ax2.set_title("Нарушения по часам", color='white')
         
         hours = [f"{i:02d}" for i in range(24)]
-        bottoms = np.zeros(24) # Массив для хранения высоты нижней части столбца
+        bottoms = np.zeros(24) 
         
-        # Отрисовываем каждый тип нарушения своим цветом поверх предыдущего
         for v_type in violation_types:
             counts = [stats_bar[h].get(v_type, 0) for h in hours]
             ax2.bar(hours, counts, bottom=bottoms, color=type_colors[v_type], label=v_type)
-            bottoms += np.array(counts) # Поднимаем "дно" для следующего типа
+            bottoms += np.array(counts)
         
         ax2.set_xticks(hours[::2]) 
         ax2.tick_params(axis='x', colors='white')
@@ -386,11 +401,9 @@ class ShrimpGUI(ctk.CTk):
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
-    # --- ЛОГИКА UI ---
     def on_perf_change(self, choice):
         self.core.settings["perf_mode"] = choice
         self.core.save_settings()
-
 
     def on_time_slider(self, val):
         self.entry_time.delete(0, 'end')
@@ -461,7 +474,6 @@ class ShrimpGUI(ctk.CTk):
         self.core.change_camera(idx)
 
     def on_prof_change(self, choice):
-        # Когда меняем профиль на Главной, настройки на вкладке "Профиль" обновляются автоматически
         self.core.settings["active_profile"] = choice
         self.core.save_settings()
         self.load_profile_settings() 
@@ -469,58 +481,45 @@ class ShrimpGUI(ctk.CTk):
     def add_profile(self):
         new_name = self.entry_new_prof.get().strip()
         if new_name and new_name not in self.core.settings["profiles"]:
-            # Создаем базовые настройки для нового профиля
             self.core.settings["profiles"][new_name] = {"baseline": None, "sens": {"slouch": 0.08, "asymmetry": 0.05, "distance": 0.1}}
-            
-            # Сразу делаем его активным
             self.core.settings["active_profile"] = new_name
             self.core.save_settings()
             
-            # Обновляем UI на Главной
             vals = list(self.core.settings["profiles"].keys())
             self.main_prof_menu.configure(values=vals)
             self.main_prof_var.set(new_name)
             
-            # Обновляем UI на вкладке Профиль
             self.load_profile_settings()
             self.entry_new_prof.delete(0, 'end')
 
     def delete_profile(self):
         current_prof = self.core.settings["active_profile"]
         
-        # Защита от удаления последнего профиля
         if len(self.core.settings["profiles"]) <= 1:
             messagebox.showwarning("Ошибка", "Нельзя удалить единственный профиль! Создайте новый, чтобы удалить этот.")
             return
             
-        # Вызов системного окна подтверждения
         confirm = messagebox.askyesno(
             "Удаление профиля", 
             f"Вы уверены, что хотите удалить профиль '{current_prof}'?\n\nЭталонная поза и настройки чувствительности будут потеряны безвозвратно."
         )
         
         if confirm:
-            # Удаляем профиль из словаря
             del self.core.settings["profiles"][current_prof]
             
-            # Назначаем новый активный профиль (первый из оставшихся)
             new_prof = list(self.core.settings["profiles"].keys())[0]
             self.core.settings["active_profile"] = new_prof
             self.core.save_settings()
             
-            # Обновляем выпадающий список на Главной
             vals = list(self.core.settings["profiles"].keys())
             self.main_prof_menu.configure(values=vals)
             self.main_prof_var.set(new_prof)
             
-            # Обновляем UI вкладки Профиль
             self.load_profile_settings()
 
     def load_profile_settings(self):
-        # Теперь метод всегда берет данные только активного профиля
         prof_name = self.core.settings["active_profile"]
         
-        # Обновляем текстовый индикатор
         if hasattr(self, 'lbl_current_prof_edit'):
             self.lbl_current_prof_edit.configure(text=f"Активный профиль: {prof_name}")
 
@@ -533,7 +532,6 @@ class ShrimpGUI(ctk.CTk):
         self.lbl_dist.configure(text=str(round(sens["distance"], 2)))
 
     def save_profile_settings(self, _=None):
-        # Сохраняем ползунки напрямую в активный профиль
         prof_name = self.core.settings["active_profile"]
         self.core.settings["profiles"][prof_name]["sens"] = {
             "slouch": self.sl_slouch.get(),
@@ -546,19 +544,17 @@ class ShrimpGUI(ctk.CTk):
         self.core.settings["notifications"]["sound"] = self.chk_sound.get() == 1
         self.core.settings["notifications"]["vignette"] = self.chk_vignette.get() == 1
         self.core.settings["notifications"]["sound_fade_ms"] = int(self.sl_fade.get())
-        self.core.settings["notifications"]["sound_volume"] = self.sl_volume.get() # Сохраняем громкость
+        self.core.settings["notifications"]["sound_volume"] = self.sl_volume.get()
         self.core.save_settings()
 
     def update_video_loop(self):
         current_tab = self.tabview.get()
         
-        # Обновляем видео на Главной вкладке
         if current_tab == "Главная" and self.core.current_frame_rgb is not None:
             img = Image.fromarray(self.core.current_frame_rgb)
             ctk_img = ctk.CTkImage(light_image=img, size=(500, 380))
             self.lbl_video_main.configure(image=ctk_img, text="")
             
-        # Обновляем видео с визуализацией на вкладке Профили
         elif current_tab == "Профиль" and self.core.current_frame_visualized is not None:
             img = Image.fromarray(self.core.current_frame_visualized)
             ctk_img = ctk.CTkImage(light_image=img, size=(450, 340))
@@ -566,9 +562,20 @@ class ShrimpGUI(ctk.CTk):
             
         self.after(30, self.update_video_loop)
 
-
     def update_ui_loop(self):
-        # 1. Синхронизация UI, если профиль или режим изменили из трея или хоткеем
+        if self.core.is_playing_sound and self.core.current_sound_channel:
+            if not self.core.current_sound_channel.get_busy():
+                self.core.is_playing_sound = False
+                self.core.is_preview_sound = False
+
+        if hasattr(self, 'btn_play_sound'):
+            if self.core.is_playing_sound:
+                self.btn_play_sound.configure(text="⏹ Остановить звук", fg_color="#dc3545", hover_color="#c82333")
+            else:
+                default_fg = ctk.ThemeManager.theme["CTkButton"]["fg_color"]
+                default_hover = ctk.ThemeManager.theme["CTkButton"]["hover_color"]
+                self.btn_play_sound.configure(text="▶ Прослушать звук", fg_color=default_fg, hover_color=default_hover)
+
         current_core_prof = self.core.settings["active_profile"]
         if self.main_prof_var.get() != current_core_prof:
             self.main_prof_var.set(current_core_prof)
@@ -578,7 +585,6 @@ class ShrimpGUI(ctk.CTk):
         if getattr(self, "perf_var", None) and self.perf_var.get() != current_perf:
             self.perf_var.set(current_perf)
 
-        # 2. Обновление кнопки сна (с таймером)
         if self.core.is_snoozing():
             rem_sec = int(self.core.snooze_until - time.time())
             mins, secs = divmod(rem_sec, 60)
@@ -588,7 +594,6 @@ class ShrimpGUI(ctk.CTk):
             self.btn_snooze.configure(text="Уснуть [Ctrl+Alt+S]", fg_color="#6c757d", hover_color="#5a6268")
             self.snooze_menu.pack(pady=(0,5), padx=10, fill="x", before=self.btn_snooze)
 
-        # 3. Статус производительности
         if self.core.is_game_running:
             self.lbl_perf_status.configure(text="Текущий режим: Минимальный (Открыта игра)", text_color="#ffaa00")
         elif getattr(self.core, 'is_high_load', False):
@@ -598,7 +603,6 @@ class ShrimpGUI(ctk.CTk):
         else:
             self.lbl_perf_status.configure(text=f"Текущий режим: {self.core.active_perf_mode}", text_color="gray")
 
-        # 4. Основной статус
         self.lbl_status.configure(text=f"Статус: {self.core.status_text}")
         if "Нарушено" in self.core.status_text or "Обнаружено" in self.core.status_text:
             self.lbl_status.configure(text_color="#ff3333")
@@ -608,7 +612,6 @@ class ShrimpGUI(ctk.CTk):
             self.lbl_status.configure(text_color="#28a745")
             
         self.after(500, self.update_ui_loop)
-
 
     def hide_to_tray(self):
         self.withdraw()

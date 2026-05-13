@@ -12,7 +12,6 @@ class VignetteOverlay:
         self.window.configure(fg_color="black")
         self.window.overrideredirect(True)
         
-        # Используем Canvas для отрисовки градиента
         self.canvas = tk.Canvas(self.window, bg="black", highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.window.withdraw()
@@ -21,7 +20,6 @@ class VignetteOverlay:
         self.current_alpha = 0.0
         self.fade_running = False
 
-        # Делаем окно кликабельным насквозь
         self.window.update()
         hwnd = ctypes.windll.user32.GetParent(self.window.winfo_id())
         WS_EX_TRANSPARENT = 0x00000020
@@ -44,12 +42,10 @@ class VignetteOverlay:
         w = self.window.winfo_screenwidth()
         h = self.window.winfo_screenheight()
         
-        # Рисуем градиент (от яркого цвета по краям к черному/прозрачному в центре)
         base_rgb = self._hex_to_rgb(color_hex)
         steps = int(thickness)
         
         for i in range(steps):
-            # Чем ближе к центру (i больше), тем темнее цвет (ближе к черному)
             ratio = 1.0 - (i / steps)
             r = int(base_rgb[0] * ratio)
             g = int(base_rgb[1] * ratio)
